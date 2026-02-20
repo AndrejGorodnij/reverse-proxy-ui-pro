@@ -18,7 +18,7 @@ $path = isset($_GET['_path']) ? trim($_GET['_path'], '/') : '';
 // CORS headers for development
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type');
+header('Access-Control-Allow-Headers: Content-Type, X-API-Key');
 
 if ($method === 'OPTIONS') {
     http_response_code(204);
@@ -28,7 +28,30 @@ if ($method === 'OPTIONS') {
 // --- Auth check middleware ---
 function requireAuth(): void
 {
-    if (empty($_SESSION['authenticated'])) {
+    global $config;
+    
+    $mode = $config['app_mode'] ?? 'webui';
+    $apiKeyMatch = false;
+    $sessionMatch = !empty($_SESSION['authenticated']);
+    
+    if (($config['api_enabled'] ?? false) && !empty($config['api_key'])) {
+        // Nginx passes headers with HTTP_ prefix and uppercase
+        $providedKey = $_SERVER['HTTP_X_API_KEY'] ?? '';
+        if ($providedKey === $config['api_key']) {
+            $apiKeyMatch = true;
+        }
+    }
+    
+    $authorized = false;
+    if ($mode === 'api') {
+        $authorized = $apiKeyMatch;
+    } elseif ($mode === 'webui') {
+        $authorized = $sessionMatch;
+    } else { // webui+api
+        $authorized = $sessionMatch || $apiKeyMatch;
+    }
+    
+    if (!$authorized) {
         http_response_code(401);
         echo json_encode(['error' => 'Unauthorized']);
         exit;
@@ -60,6 +83,11 @@ function jsonError(string $message, int $code = 400): void
 
 // --- Route: Login ---
 if ($path === 'login' && $method === 'POST') {
+    $mode = $config['app_mode'] ?? 'webui';
+    if ($mode === 'api') {
+        jsonError('Web UI login is disabled in API-only mode', 403);
+    }
+    
     $input = getJsonInput();
     $password = $input['password'] ?? '';
 
@@ -77,7 +105,10 @@ if ($path === 'login' && $method === 'POST') {
 
 // --- Route: Check auth ---
 if ($path === 'auth/check' && $method === 'GET') {
-    jsonResponse(['authenticated' => !empty($_SESSION['authenticated'])]);
+    jsonResponse([
+        'authenticated' => !empty($_SESSION['authenticated']),
+        'mode' => $config['app_mode'] ?? 'webui'
+    ]);
 }
 
 // --- Route: Logout ---

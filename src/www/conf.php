@@ -7,8 +7,8 @@
  * api_key: 32-char token for X-API-Key header authentication
  */
 return [
-    'app_mode'      => '_APP_MODE_',
-    'password_hash' => '_PASSWORD_HASH_',
-    'api_enabled'   => _API_ENABLED_,
-    'api_key'       => '_API_KEY_',
+    'app_mode'      => 'webui+api',
+    'password_hash' => '$2y$10$TjZk7Jj2...TODO',
+    'api_enabled'   => true,
+    'api_key'       => 'TEST_API_KEY_123',
 ];

@@ -107,6 +107,12 @@ async function init() {
             startAutoRefresh();
         } else {
             showView('login-view');
+            if (a.mode === 'api') {
+                const form = document.getElementById('login-form');
+                if (form) {
+                    form.innerHTML = '<div style="margin-top:40px; text-align:center;"><h3 style="color:var(--accent); font-size:24px;">API Mode Active</h3><p style="color:var(--text-muted); margin-top:10px;">Web UI is disabled by configuration.</p></div>';
+                }
+            }
         }
     } catch { showView('login-view'); }
 
