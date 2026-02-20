@@ -86,6 +86,10 @@ Access the dashboard at **http://your-server-ip**
 | POST | `/api.php?_path=domains/restart` | Restart Nginx |
 | GET | `/api.php?_path=status` | Check Nginx status |
 
+## 🙏 Credits
+
+Forked from [momentum100/reverse-proxy-ui](https://github.com/momentum100/reverse-proxy-ui) — the original lightweight reverse proxy manager.
+
 ## 📄 License
 
 MIT
@@ -133,3 +137,7 @@ chmod +x start.sh
 3. Запише дані для входу в `credentials.txt`
 
 Відкрийте панель за адресою **http://ваш-сервер-ip**
+
+## 🙏 Подяки
+
+Форк оригінального проєкту [momentum100/reverse-proxy-ui](https://github.com/momentum100/reverse-proxy-ui).
