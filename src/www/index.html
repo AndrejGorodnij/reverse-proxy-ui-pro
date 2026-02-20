@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reverse Proxy UI</title>
+    <meta name="description" content="Manage reverse proxy domains, SSL certificates and nginx configuration">
+    <link rel="stylesheet" href="assets/style.css">
+    <link id="favicon" rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>⚡</text></svg>">
+</head>
+
+<body>
+
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- ============ LOGIN ============ -->
+    <div id="login-view" class="view active">
+        <div class="login-wrapper">
+            <div class="login-card">
+                <h1>⚡ Reverse Proxy</h1>
+                <p class="subtitle">Manage domains, SSL & nginx configs</p>
+                <div id="login-error" class="login-error"></div>
+                <form id="login-form">
+                    <div class="form-group">
+                        <label for="login-password">Password</label>
+                        <input type="password" id="login-password" class="form-input" placeholder="Enter your password"
+                            autofocus required>
+                    </div>
+                    <button type="submit" id="login-btn" class="btn btn-primary btn-block btn-lg">
+                        Login
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ DASHBOARD ============ -->
+    <div id="dashboard-view" class="view">
+
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-left">
+                <div class="logo">
+                    <span class="logo-dot"></span>
+                    Reverse Proxy UI
+                </div>
+                <nav class="nav-tabs">
+                    <button class="nav-tab active">Domains</button>
+                    <button class="nav-tab"
+                        onclick="document.getElementById('log-panel').classList.toggle('visible')">Logs</button>
+                </nav>
+            </div>
+            <div class="header-right">
+                <div class="header-status">
+                    <span id="nginx-status-dot" class="status-dot-sm"></span>
+                    <span id="nginx-status-text">Checking…</span>
+                </div>
+                <button class="btn btn-ghost btn-sm" id="theme-toggle" onclick="toggleTheme()"
+                    title="Toggle theme">🌙</button>
+                <button class="btn btn-outline btn-sm" onclick="handleLogout()">Logout</button>
+            </div>
+        </header>
+
+        <main class="app-main">
+
+            <!-- Top Grid: Add Domains + Stats -->
+            <div class="top-grid">
+
+                <!-- Add Domains -->
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">➕ Add Domains</span>
+                        <div class="add-tabs">
+                            <button class="add-tab active" onclick="switchAddTab('manual', this)">✍️ Manual</button>
+                            <button class="add-tab" onclick="switchAddTab('import', this)">📁 Import file</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- Step 1: Destination IP (shared) -->
+                        <div class="form-group" style="margin-bottom:12px;">
+                            <label>① Destination IP <span class="hint">— where domains will proxy to</span></label>
+                            <input type="text" id="ip-input" class="form-input" placeholder="e.g. 123.45.67.89">
+                        </div>
+
+                        <!-- Tab: Manual entry -->
+                        <div id="add-tab-manual" class="add-tab-content active">
+                            <div class="form-group" style="margin:0">
+                                <label>② Enter domains <span class="hint">— one per line, or drag & drop a
+                                        file</span></label>
+                                <textarea id="domains-input" class="form-input drop-zone" rows="3"
+                                    placeholder="example.com&#10;shop.example.net&#10;landing-page.io"></textarea>
+                            </div>
+                            <div
+                                style="margin-top:10px; display:flex; gap:8px; align-items:center; justify-content:space-between;">
+                                <span class="parsed-count" id="manual-count"></span>
+                                <button id="add-btn" class="btn btn-primary btn-sm" onclick="addDomains()">
+                                    + Add domains
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Tab: Import file -->
+                        <div id="add-tab-import" class="add-tab-content">
+                            <div class="form-group" style="margin:0">
+                                <label>② Choose a file <span class="hint">— .txt or .csv (one domain per
+                                        line)</span></label>
+                                <div class="import-dropzone" id="import-dropzone">
+                                    <div class="import-dropzone-inner">
+                                        <span class="import-icon">📄</span>
+                                        <span>Drop file here or <label class="import-browse"
+                                                for="import-file">browse</label></span>
+                                        <span class="hint">Supported: .txt .csv — one domain per line or
+                                            comma-separated</span>
+                                    </div>
+                                    <input type="file" id="import-file" accept=".csv,.txt" style="display:none"
+                                        onchange="previewImport(this)">
+                                </div>
+                            </div>
+                            <!-- Import Preview -->
+                            <div id="import-preview" class="import-preview" style="display:none">
+                                <div class="import-preview-header">
+                                    <span>📋 Preview: <strong id="import-preview-count">0</strong> domains found</span>
+                                    <div style="display:flex; gap:6px;">
+                                        <button class="btn btn-outline btn-sm" onclick="cancelImport()">Cancel</button>
+                                        <button id="import-confirm-btn" class="btn btn-primary btn-sm"
+                                            onclick="confirmImport()">✓ Add all</button>
+                                    </div>
+                                </div>
+                                <div class="import-preview-list" id="import-preview-list"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Stats -->
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">📊 Overview</span>
+                        <button class="btn btn-ghost btn-sm" onclick="exportCSV()" title="Export CSV">📥 Export</button>
+                    </div>
+                    <div class="card-body">
+                        <div class="stats-row">
+                            <div class="stat-item">
+                                <span class="stat-label">Total</span>
+                                <span class="stat-value" id="stat-total">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Active</span>
+                                <span class="stat-value green" id="stat-active">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Pending</span>
+                                <span class="stat-value accent" id="stat-pending">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Failed</span>
+                                <span class="stat-value red" id="stat-failed">0</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">SSL ⚠️</span>
+                                <span class="stat-value accent" id="stat-ssl-warn">0</span>
+                            </div>
+                        </div>
+                        <div id="ip-groups" class="ip-groups" style="margin-top:12px;"></div>
+                        <div id="health-bar" class="health-bar"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Filter Bar -->
+            <div class="filter-bar">
+                <div class="filter-group">
+                    <label>Status</label>
+                    <div class="filter-tags">
+                        <button class="filter-tag active" data-status="" onclick="setFilter('')">All</button>
+                        <button class="filter-tag" data-status="active" onclick="setFilter('active')">Active</button>
+                        <button class="filter-tag" data-status="new" onclick="setFilter('new')">New</button>
+                        <button class="filter-tag" data-status="pending" onclick="setFilter('pending')">Pending</button>
+                        <button class="filter-tag" data-status="failed" onclick="setFilter('failed')">Failed</button>
+                        <button class="filter-tag" data-status="dns_error" onclick="setFilter('dns_error')">DNS
+                            Error</button>
+                    </div>
+                </div>
+                <div class="filter-group" style="margin-left:auto; min-width:200px;">
+                    <label>Search</label>
+                    <div class="search-box">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" id="search-input" placeholder="Domain, IP…">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bulk bar -->
+            <div id="bulk-bar" class="bulk-bar">
+                <span id="selected-count" class="sel-count"></span>
+                <button class="btn btn-danger btn-sm" onclick="bulkDelete()">🗑 Delete selected</button>
+            </div>
+
+            <!-- Table -->
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width:36px"><input type="checkbox" id="select-all" class="cb"></th>
+                            <th class="sortable" onclick="toggleSort('id')" style="width:50px">ID <span
+                                    class="sort-arrow" data-col="id"></span></th>
+                            <th class="sortable" onclick="toggleSort('name')">Domain <span class="sort-arrow"
+                                    data-col="name"></span></th>
+                            <th>Dest. IP</th>
+                            <th>DNS IP</th>
+                            <th class="sortable" onclick="toggleSort('status')">Status <span class="sort-arrow"
+                                    data-col="status"></span></th>
+                            <th class="sortable" onclick="toggleSort('ssl_days_left')">SSL <span class="sort-arrow"
+                                    data-col="ssl_days_left"></span></th>
+                            <th class="sortable" onclick="toggleSort('date')">Date <span class="sort-arrow"
+                                    data-col="date"></span></th>
+                            <th style="width:50px"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="summary-row"></tbody>
+                    <tbody id="domain-tbody"></tbody>
+                </table>
+                <!-- Skeleton loading -->
+                <div id="skeleton" class="skeleton-container">
+                    <div class="skeleton-row">
+                        <div class="sk"></div>
+                        <div class="sk sk-wide"></div>
+                        <div class="sk"></div>
+                        <div class="sk"></div>
+                        <div class="sk sk-badge"></div>
+                        <div class="sk"></div>
+                    </div>
+                    <div class="skeleton-row">
+                        <div class="sk"></div>
+                        <div class="sk sk-wide"></div>
+                        <div class="sk"></div>
+                        <div class="sk"></div>
+                        <div class="sk sk-badge"></div>
+                        <div class="sk"></div>
+                    </div>
+                    <div class="skeleton-row">
+                        <div class="sk"></div>
+                        <div class="sk sk-wide"></div>
+                        <div class="sk"></div>
+                        <div class="sk"></div>
+                        <div class="sk sk-badge"></div>
+                        <div class="sk"></div>
+                    </div>
+                    <div class="skeleton-row">
+                        <div class="sk"></div>
+                        <div class="sk sk-wide"></div>
+                        <div class="sk"></div>
+                        <div class="sk"></div>
+                        <div class="sk sk-badge"></div>
+                        <div class="sk"></div>
+                    </div>
+                    <div class="skeleton-row">
+                        <div class="sk"></div>
+                        <div class="sk sk-wide"></div>
+                        <div class="sk"></div>
+                        <div class="sk"></div>
+                        <div class="sk sk-badge"></div>
+                        <div class="sk"></div>
+                    </div>
+                </div>
+                <div id="empty-state" class="empty-state" style="display:none">
+                    <div class="emoji">🌐</div>
+                    <p>No domains yet — add your first one above</p>
+                </div>
+            </div>
+
+            <div style="padding: 8px 0;">
+                <div class="domain-count" id="domain-count"></div>
+            </div>
+
+            <!-- Actions -->
+            <div class="actions-panel">
+                <button id="generate-btn" class="btn btn-primary" onclick="startGenerate()">
+                    ⚡ Generate configs
+                </button>
+                <button id="restart-btn" class="btn btn-outline" onclick="restartNginx()">
+                    🔄 Restart nginx
+                </button>
+            </div>
+
+            <div id="log-panel" class="log-panel"></div>
+        </main>
+    </div>
+
+    <script src="assets/app.js"></script>
+</body>
+
+</html>

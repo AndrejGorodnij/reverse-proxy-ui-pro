@@ -1,0 +1,7 @@
+<?php
+/**
+ * Configuration file — password hash is set during installation via start.sh
+ */
+return [
+    'password_hash' => '_PASSWORD_HASH_',
+];
