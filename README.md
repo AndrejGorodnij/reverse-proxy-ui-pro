@@ -40,7 +40,29 @@ The script will:
 2. Build and start Docker containers
 3. Print login credentials to `credentials.txt`
 
+The script will prompt you to select an installation mode:
+- **1) webui** — standard web dashboard (password login)
+- **2) api** — external API only (API key auth)
+- **3) webui+api** — both interfaces enabled
+
 Access the dashboard at **http://your-server-ip**
+
+## 🔑 External API Usage (API Mode)
+
+If you enabled the API during setup, you can manage domains programmatically using the `X-API-Key` header (the key is saved in `credentials.txt`):
+
+```bash
+# List domains
+curl -H "X-API-Key: YOUR_API_KEY" http://your-server-ip/api.php?_path=domains
+
+# Add multiple domains
+curl -X POST -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" \
+  -d '{"names":["api-test.com", "another.io"], "ip":"1.2.3.4"}' \
+  http://your-server-ip/api.php?_path=domains
+
+# Check Nginx status
+curl -H "X-API-Key: YOUR_API_KEY" http://your-server-ip/api.php?_path=status
+```
 
 ## 🐳 Docker Architecture
 
@@ -136,7 +158,26 @@ chmod +x start.sh
 2. Збере та запустить Docker-контейнери
 3. Запише дані для входу в `credentials.txt`
 
+Під час запуску скрипт запропонує вибрати режим:
+- **1) webui** — стандартна веб-панель (вхід за паролем)
+- **2) api** — тільки зовнішній API (авторизація за токеном)
+- **3) webui+api** — увімкнені обидва інтерфейси
+
 Відкрийте панель за адресою **http://ваш-сервер-ip**
+
+## 🔑 Використання зовнішнього API
+
+Якщо API активовано, ви можете керувати доменами програмно, використовуючи заголовок `X-API-Key` (токен зберігається у `credentials.txt`):
+
+```bash
+# Отримати список доменів
+curl -H "X-API-Key: YOUR_API_KEY" http://ваш-сервер-ip/api.php?_path=domains
+
+# Додати домени
+curl -X POST -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" \
+  -d '{"names":["api-test.com", "another.io"], "ip":"1.2.3.4"}' \
+  http://ваш-сервер-ip/api.php?_path=domains
+```
 
 ## 🙏 Подяки
 
