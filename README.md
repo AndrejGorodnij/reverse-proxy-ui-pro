@@ -29,10 +29,15 @@ A modern web dashboard for managing Nginx reverse proxy domains, SSL certificate
 ## 🚀 Quick Start
 
 ```bash
-git clone https://github.com/AndrejGorodnij/reverse-proxy-ui-pro.git
-cd reverse-proxy-ui-pro
-chmod +x start.sh
-./start.sh
+# Prepare server, install dependencies and Docker
+systemctl stop apache2; sudo apt-get update && \
+sudo apt-get install -y curl git && \
+curl -fsSL https://get.docker.com -o get-docker.sh && \
+sudo sh ./get-docker.sh && \
+git clone https://github.com/AndrejGorodnij/reverse-proxy-ui-pro.git && \
+cd ./reverse-proxy-ui-pro && \
+chmod +x start.sh && \
+sudo ./start.sh
 ```
 
 The script will:
@@ -147,10 +152,15 @@ MIT
 ## 🚀 Швидкий старт
 
 ```bash
-git clone https://github.com/AndrejGorodnij/reverse-proxy-ui-pro.git
-cd reverse-proxy-ui-pro
-chmod +x start.sh
-./start.sh
+# Підготовка сервера, встановлення залежностей та Docker
+systemctl stop apache2; sudo apt-get update && \
+sudo apt-get install -y curl git && \
+curl -fsSL https://get.docker.com -o get-docker.sh && \
+sudo sh ./get-docker.sh && \
+git clone https://github.com/AndrejGorodnij/reverse-proxy-ui-pro.git && \
+cd ./reverse-proxy-ui-pro && \
+chmod +x start.sh && \
+sudo ./start.sh
 ```
 
 Скрипт:
