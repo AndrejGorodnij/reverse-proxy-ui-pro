@@ -156,10 +156,6 @@ The script auto-backs up `nginx-configs/` before rewriting and prints the rollba
 | POST | `/api.php?_path=domains/restart` | Restart Nginx |
 | GET | `/api.php?_path=status` | Check Nginx status |
 
-## 🙏 Credits
-
-Forked from [momentum100/reverse-proxy-ui](https://github.com/momentum100/reverse-proxy-ui) — the original lightweight reverse proxy manager.
-
 ## 📄 License
 
 MIT
@@ -270,7 +266,3 @@ docker exec reverse-proxy nginx -t
 ```
 
 Скрипт автоматично робить бекап `nginx-configs/` і друкує шлях для відкату.
-
-## 🙏 Подяки
-
-Форк оригінального проєкту [momentum100/reverse-proxy-ui](https://github.com/momentum100/reverse-proxy-ui).
