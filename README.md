@@ -69,6 +69,45 @@ curl -X POST -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" \
 curl -H "X-API-Key: YOUR_API_KEY" http://your-server-ip/api.php?_path=status
 ```
 
+## 🔧 Production Configuration
+
+### Hardened vhost template
+
+Each generated per-domain config now includes:
+- **HTTP → HTTPS hard redirect** (separate `:80` server block)
+- **HTTP/2** on `:443`, IPv6 listeners
+- **HSTS** with `max-age=1y; includeSubDomains` (⚠️ irreversible browser-side lock-in)
+- **`X-Forwarded-Proto $scheme`** — trackers (Binom etc.) generate https-aware links instead of mixed-content http
+- **Keep-alive to upstream** (`proxy_http_version 1.1`) — no TCP handshake per click
+- Tuned **timeouts** and **buffers** for affiliate-tracker payloads
+- `proxy_redirect http:// https://` — upgrades upstream `Location:` headers
+
+### Behind Cloudflare?
+
+If your domains are proxied through Cloudflare, by default `$remote_addr` will be a Cloudflare edge IP — breaking geo, anti-fraud, and per-IP analytics. Run once after install:
+
+```bash
+bash scripts/cloudflare-realip.sh
+docker exec reverse-proxy nginx -t && docker exec reverse-proxy nginx -s reload
+```
+
+The script fetches current Cloudflare IPv4/IPv6 ranges and writes `nginx-configs/00-cloudflare-realip.conf` so nginx trusts `CF-Connecting-IP`.
+
+⚠️ **Set Cloudflare SSL/TLS mode to Full (Strict)** before deploying the new template — Flexible mode will create a redirect loop with the hard HTTPS redirect.
+
+### Applying template changes to existing domains
+
+After editing `src/nginx-templates/vhost-template.txt`, only **future** domains pick up the new template. To rewrite all existing per-domain configs without re-running certbot (avoids Let's Encrypt rate limits):
+
+```bash
+docker compose down
+bash scripts/regenerate-vhosts.sh   # backs up nginx-configs/, rewrites .conf files using IPs from SQLite
+docker compose up -d --build        # rebuild webui to bake the new template into the image
+docker exec reverse-proxy nginx -t
+```
+
+The script auto-backs up `nginx-configs/` before rewriting and prints the rollback path.
+
 ## 🐳 Docker Architecture
 
 | Service | Description |
@@ -79,23 +118,27 @@ curl -H "X-API-Key: YOUR_API_KEY" http://your-server-ip/api.php?_path=status
 ## 📁 Project Structure
 
 ```
-├── docker-compose.yml        # Service definitions
-├── nginx-configs/default.conf # Nginx SPA config
-├── reverse-proxy.Dockerfile   # Nginx image
-├── webui.Dockerfile           # PHP-FPM + Certbot image
-├── start.sh                   # Setup & launch script
+├── docker-compose.yml          # Service definitions
+├── nginx-configs/default.conf  # Nginx SPA config
+├── reverse-proxy.Dockerfile    # Nginx image
+├── webui.Dockerfile            # PHP-FPM + Certbot image
+├── start.sh                    # Setup & launch script
+├── scripts/                    # Operational helpers
+│   ├── cloudflare-realip.sh    # Generate CF real-IP config
+│   └── regenerate-vhosts.sh    # Rewrite vhosts from updated template
 └── src/
-    ├── www/
-    │   ├── index.html          # SPA frontend
-    │   ├── api.php             # API router
-    │   ├── assets/
-    │   │   ├── app.js          # Frontend logic (740+ lines)
-    │   │   └── style.css       # Themes & responsive styles
-    │   └── database/
-    │       ├── db.php           # SQLite singleton
-    │       ├── crud/            # Domain CRUD endpoints
-    │       └── config/          # Generate, restart, status
-    └── nginx-templates/        # Vhost template
+    ├── nginx-data/             # SSL options + dhparam (baked into nginx image)
+    ├── nginx-templates/        # Vhost template (baked into webui image)
+    └── www/
+        ├── index.html          # SPA frontend
+        ├── api.php             # API router
+        ├── assets/
+        │   ├── app.js          # Frontend logic (740+ lines)
+        │   └── style.css       # Themes & responsive styles
+        └── database/
+            ├── db.php          # SQLite singleton
+            ├── crud/           # Domain CRUD endpoints
+            └── config/         # Generate, restart, status
 ```
 
 ## 🔌 API Endpoints
@@ -188,6 +231,45 @@ curl -X POST -H "X-API-Key: YOUR_API_KEY" -H "Content-Type: application/json" \
   -d '{"names":["api-test.com", "another.io"], "ip":"1.2.3.4"}' \
   http://ваш-сервер-ip/api.php?_path=domains
 ```
+
+## 🔧 Налаштування для продакшену
+
+### Готовий до бою vhost-темплейт
+
+Згенеровані для кожного домену конфіги тепер містять:
+- **Жорсткий редірект HTTP → HTTPS** (окремий `:80` server-блок)
+- **HTTP/2** на `:443`, IPv6 listeners
+- **HSTS** із `max-age=1рік; includeSubDomains` (⚠️ незворотній лок з боку браузера)
+- **`X-Forwarded-Proto $scheme`** — трекери (Binom тощо) генерують https-посилання замість mixed-content http
+- **Keep-alive** до бекенду (`proxy_http_version 1.1`) — без TCP handshake на кожен клік
+- Налаштовані **timeouts** і **buffers** під трафік affiliate-трекерів
+- `proxy_redirect http:// https://` — апгрейд `Location:` заголовків від бекенду
+
+### За Cloudflare?
+
+Якщо ваші домени проксі через Cloudflare, за замовчуванням `$remote_addr` буде edge-IP CF — це ламає гео, антифрод і IP-аналітику в трекері. Виконайте один раз після інсталу:
+
+```bash
+bash scripts/cloudflare-realip.sh
+docker exec reverse-proxy nginx -t && docker exec reverse-proxy nginx -s reload
+```
+
+Скрипт тягне свіжі діапазони IPv4/IPv6 від Cloudflare і пише `nginx-configs/00-cloudflare-realip.conf`, після чого nginx довіряє заголовку `CF-Connecting-IP`.
+
+⚠️ **CF SSL/TLS mode має бути Full (Strict)** перед деплоєм нового темплейту — у Flexible режимі редірект 80→443 утворює петлю.
+
+### Застосування правок темплейту до наявних доменів
+
+Після зміни `src/nginx-templates/vhost-template.txt` новий конфіг потрапляє лише до **майбутніх** доменів. Щоб переписати всі існуючі без повторного certbot (без ризику Let's Encrypt rate-limit):
+
+```bash
+docker compose down
+bash scripts/regenerate-vhosts.sh   # бекапить nginx-configs/, переписує .conf, IP бере з SQLite
+docker compose up -d --build        # rebuild webui — щоб новий темплейт був у образі
+docker exec reverse-proxy nginx -t
+```
+
+Скрипт автоматично робить бекап `nginx-configs/` і друкує шлях для відкату.
 
 ## 🙏 Подяки
 
