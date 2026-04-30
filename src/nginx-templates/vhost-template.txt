@@ -1,22 +1,54 @@
+# HTTP → HTTPS hard redirect
+server {
+    server_name DOMAIN;
+    listen 80;
+    listen [::]:80;
+    return 301 https://$host$request_uri;
+}
+
 server {
     server_name DOMAIN;
 
-    listen 80;
-    listen 443 ssl;
-    ssl_certificate /var/www/nginxConfig/certificates/live/DOMAIN/fullchain.pem; # managed by Certbot
-    ssl_certificate_key /var/www/nginxConfig/certificates/live/DOMAIN/privkey.pem; # managed by Certbot
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+
+    ssl_certificate /var/www/nginxConfig/certificates/live/DOMAIN/fullchain.pem;
+    ssl_certificate_key /var/www/nginxConfig/certificates/live/DOMAIN/privkey.pem;
 
     include /nginx-data/options-ssl-nginx.conf;
     ssl_dhparam /nginx-data/dhparam.pem;
 
-    # Specify the paths for the access and error logs
+    # Tell browsers: only ever use https for this domain (1 year)
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
     access_log /var/log/nginx/DOMAIN-access.log;
     error_log /var/log/nginx/DOMAIN-error.log;
 
     location / {
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_pass http://DESTINATIONIP:80;
+
+        # === КРИТИЧНО: говорим Binom что снаружи https ===
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host  $host;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header Host              $host;
+
+        # Keep-alive до Binom, иначе TCP handshake на каждый клик
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+
+        # Хвост долгих кликов под FB-всплесками
+        proxy_connect_timeout 10s;
+        proxy_send_timeout    30s;
+        proxy_read_timeout    30s;
+
+        # Если Binom вдруг отдаст Location: http://... — апгрейдим
+        proxy_redirect http:// https://;
+
+        # Размеры буферов под жирные ответы Binom (cookies, headers)
+        proxy_buffer_size       16k;
+        proxy_buffers           8 16k;
+        proxy_busy_buffers_size 32k;
     }
 }
