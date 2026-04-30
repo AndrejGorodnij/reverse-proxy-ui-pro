@@ -1,12 +1,12 @@
 <?php
 /**
  * List domains with auto-status and SSL cert expiry
- * 
+ *
  * Auto-updates status based on DNS:
- *   - DNS resolves to dest IP → active
+ *   - DNS resolves to this server's public IP → active
  *   - DNS doesn't match → dns_error
  *   - Status 'pending' → skip (cert generation in progress)
- * 
+ *
  * SSL cert expiry:
  *   - Reads /certs/certificates/live/{domain}/fullchain.pem
  *   - Returns ssl_expiry (date) and ssl_days_left (int)
@@ -19,6 +19,7 @@ $db = MyDB::getInstance();
 $result = $db->query('SELECT * FROM domain ORDER BY id DESC');
 
 $updateStmt = $db->prepare('UPDATE domain SET status = :status WHERE id = :id');
+$serverIP = MyDB::getServerIP();
 $data = [];
 
 while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
@@ -27,10 +28,10 @@ while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
     if ($dnsIp === $row['name']) $dnsIp = null;
     $row['dns_ip'] = $dnsIp;
 
-    // Auto-update status (skip pending)
+    // Auto-update status (skip pending and 'new' — domain not yet generated)
     $oldStatus = $row['status'];
-    if ($oldStatus !== 'pending') {
-        $newStatus = ($dnsIp !== null && $dnsIp === $row['ip']) ? 'active' : 'dns_error';
+    if ($oldStatus !== 'pending' && $oldStatus !== 'new') {
+        $newStatus = ($dnsIp !== null && $serverIP !== '' && $dnsIp === $serverIP) ? 'active' : 'dns_error';
         if ($newStatus !== $oldStatus) {
             $updateStmt->reset();
             $updateStmt->bindValue(':status', $newStatus, SQLITE3_TEXT);

@@ -70,4 +70,19 @@ class MyDB
     {
         return $this->db->changes();
     }
+
+    public static function getServerIP(): string
+    {
+        $cacheFile = '/tmp/server_ip.cache';
+        $ttl = 3600;
+
+        if (is_file($cacheFile) && (time() - filemtime($cacheFile)) < $ttl) {
+            $cached = trim((string) @file_get_contents($cacheFile));
+            if ($cached !== '') return $cached;
+        }
+
+        $ip = trim((string) @shell_exec('curl -s --max-time 5 https://ipinfo.io/ip'));
+        if ($ip !== '') @file_put_contents($cacheFile, $ip);
+        return $ip;
+    }
 }
